@@ -54,6 +54,11 @@
 #include "spdk_internal/sock.h"
 #include "../sock_kernel.h"
 
+#include <stdio.h>
+#include <time.h>       // for clock_t, clock(), CLOCKS_PER_SEC
+#include <unistd.h>     // for sleep()
+
+
 #define MAX_TMPBUF 1024
 #define PORTNUMLEN 32
 
@@ -537,6 +542,11 @@ posix_sock_create(const char *ip, int port,
 	bool enable_zcopy_impl_opts = true;
 	bool conn_inprogress = false;
 
+	double time_spent = 0.0;
+	clock_t ts_begin = clock();
+
+	SPDK_WARNLOG("MAYASTOR: posix_sock_create %s:%d ...", ip, port);
+
 	assert(opts != NULL);
 
 	if (ip == NULL) {
@@ -564,6 +574,9 @@ posix_sock_create(const char *ip, int port,
 		return NULL;
 	}
 
+	time_spent += (double)(clock() - ts_begin) / CLOCKS_PER_SEC;
+	SPDK_WARNLOG("MAYASTOR: posix_sock_create %s:%d:        [10] getaddrinfo() OK: %f", ip, port, time_spent);
+
 	/* try listen */
 	fd = -1;
 	if (type == SPDK_SOCK_CREATE_LISTEN) {
@@ -573,6 +586,10 @@ retry:
 			if (fd < 0) {
 				continue;
 			}
+
+			time_spent += (double)(clock() - ts_begin) / CLOCKS_PER_SEC;
+			SPDK_WARNLOG("MAYASTOR: posix_sock_create %s:%d:        [20] fd OK: %f", ip, port, time_spent);
+
 			rc = bind(fd, res->ai_addr, res->ai_addrlen);
 			if (rc != 0) {
 				SPDK_ERRLOG("bind() failed at port %d, errno = %d\n", port, errno);
@@ -594,6 +611,10 @@ retry:
 					continue;
 				}
 			}
+
+			time_spent += (double)(clock() - ts_begin) / CLOCKS_PER_SEC;
+			SPDK_WARNLOG("MAYASTOR: posix_sock_create %s:%d:        [30] bind OK: %f", ip, port, time_spent);
+
 			/* bind OK */
 			rc = listen(fd, 512);
 			if (rc != 0) {
@@ -603,6 +624,9 @@ retry:
 				break;
 			}
 			enable_zcopy_impl_opts = g_spdk_posix_sock_impl_opts.enable_zerocopy_send_server;
+
+			time_spent += (double)(clock() - ts_begin) / CLOCKS_PER_SEC;
+			SPDK_WARNLOG("MAYASTOR: posix_sock_create %s:%d:        [40] listen OK: %f", ip, port, time_spent);
 
 			if (posix_sock_make_nonblock(fd)) {
 				close(fd);
@@ -616,18 +640,25 @@ retry:
 		enable_zcopy_impl_opts = g_spdk_posix_sock_impl_opts.enable_zerocopy_send_client;
 		res = res0;
 		fd = posix_sock_connect_async(&res, opts, &conn_inprogress);
+
+		time_spent += (double)(clock() - ts_begin) / CLOCKS_PER_SEC;
+		SPDK_WARNLOG("MAYASTOR: posix_sock_create %s:%d:        [50] connect OK: %f", ip, port, time_spent);
 	}
 
 	if (!conn_inprogress) {
 		freeaddrinfo(res0);
 	}
 
+	time_spent += (double)(clock() - ts_begin) / CLOCKS_PER_SEC;
+	SPDK_WARNLOG("MAYASTOR: posix_sock_create %s:%d:        [70] conn loop OK: %f", ip, port, time_spent);
+
 	if (fd < 0) {
 		return NULL;
 	}
 
 	/* Only enable zero copy for non-loopback sockets. */
-	enable_zcopy_user_opts = opts->zcopy && !sock_is_loopback(fd);
+//	enable_zcopy_user_opts = opts->zcopy && !sock_is_loopback(fd);
+	enable_zcopy_user_opts = opts->zcopy;
 
 	sock = posix_sock_alloc(fd, enable_zcopy_user_opts && enable_zcopy_impl_opts, !conn_inprogress);
 	if (sock == NULL) {
@@ -639,6 +670,9 @@ retry:
 	if (conn_inprogress) {
 		posix_connect_ctx_init(&sock->conn_ctx, res0, res, opts);
 	}
+
+	time_spent += (double)(clock() - ts_begin) / CLOCKS_PER_SEC;
+	SPDK_WARNLOG("MAYASTOR: posix_sock_create %s:%d:        DONE: %f", ip, port, time_spent);
 
 	return &sock->base;
 }
