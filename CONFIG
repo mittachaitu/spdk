@@ -104,11 +104,11 @@ CONFIG_WPDK_DIR=
 
 # Build SPDK FIO plugin. Requires CONFIG_FIO_SOURCE_DIR set to a valid
 # fio source code directory.
-CONFIG_FIO_PLUGIN=y
+CONFIG_FIO_PLUGIN=n
 
 # This directory should contain the source code directory for fio
 # which is required for building the SPDK FIO plugin.
-CONFIG_FIO_SOURCE_DIR=/home/mittas/gocode/src/github.com/axboe/fio
+CONFIG_FIO_SOURCE_DIR=/usr/src/fio
 
 # Enable RDMA support for the NVMf target.
 # Requires ibverbs development libraries.

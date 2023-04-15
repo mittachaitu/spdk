@@ -51,7 +51,7 @@
 #include <sys/eventfd.h>
 #include <libaio.h>
 
-#include <rte_atomic.h>
+// #include <rte_atomic.h>
 
 struct bdev_aio_io_channel {
 	uint64_t				io_inflight;
@@ -86,10 +86,14 @@ struct file_disk {
 	bool			block_size_override;
 
 	/** counters for IOs **/
-	rte_atomic64_t s_write_io_count;
-	rte_atomic64_t c_write_io_count;
-	rte_atomic64_t s_read_io_count;
-	rte_atomic64_t c_read_io_count;
+	// rte_atomic64_t s_write_io_count;
+	// rte_atomic64_t c_write_io_count;
+	// rte_atomic64_t s_read_io_count;
+	// rte_atomic64_t c_read_io_count;
+	uint64_t s_write_io_count;
+	uint64_t c_write_io_count;
+	uint64_t s_read_io_count;
+	uint64_t c_read_io_count;
 };
 
 /* For user space reaping of completions */
@@ -203,7 +207,8 @@ bdev_aio_readv(struct file_disk *fdisk, struct spdk_io_channel *ch,
 			SPDK_ERRLOG("%s: io_submit returned %d\n", __func__, rc);
 		}
 	} else {
-		rte_atomic64_add(&fdisk->s_read_io_count, 1);
+		__sync_fetch_and_add(&fdisk->s_read_io_count, 1);
+		// rte_atomic64_add(&fdisk->s_read_io_count, 1);
 		// fdisk->s_read_io_count++;
 		aio_ch->io_inflight++;
 	}
@@ -239,7 +244,8 @@ bdev_aio_writev(struct file_disk *fdisk, struct spdk_io_channel *ch,
 			SPDK_ERRLOG("%s: io_submit returned %d\n", __func__, rc);
 		}
 	} else {
-		rte_atomic64_add(&fdisk->s_write_io_count, 1);
+		__sync_fetch_and_add(&fdisk->s_write_io_count, 1);
+		// rte_atomic64_add(&fdisk->s_write_io_count, 1);
 		aio_ch->io_inflight++;
 	}
 }
@@ -370,10 +376,12 @@ bdev_aio_io_channel_poll(struct bdev_aio_io_channel *io_ch)
 			SPDK_INFOLOG(aio, "Received acknoweldgement for IO %d", bdev_io->type);
 			switch (bdev_io->type) {
 				case SPDK_BDEV_IO_TYPE_READ:
-					rte_atomic64_add(&fdisk->c_read_io_count, 1);
+					__sync_fetch_and_add(&fdisk->c_read_io_count, 1);
+					// rte_atomic64_add(&fdisk->c_read_io_count, 1);
 					break;
 				case SPDK_BDEV_IO_TYPE_WRITE:
-					rte_atomic64_add(&fdisk->c_write_io_count, 1);
+					__sync_fetch_and_add(&fdisk->c_write_io_count, 1);
+					// rte_atomic64_add(&fdisk->c_write_io_count, 1);
 					// fdisk->c_write_io_count++;
 					break;
 			}
@@ -618,10 +626,14 @@ bdev_aio_dump_info_json(void *ctx, struct spdk_json_write_ctx *w)
 	spdk_json_write_named_object_begin(w, "aio");
 
 	spdk_json_write_named_string(w, "filename", fdisk->filename);
-	spdk_json_write_named_int64(w, "submited_write_io_count", rte_atomic64_read(&fdisk->s_write_io_count));
-	spdk_json_write_named_int64(w, "completed_write_io_count", rte_atomic64_read(&fdisk->c_write_io_count));
-	spdk_json_write_named_int64(w, "submited_read_io_count", rte_atomic64_read(&fdisk->s_read_io_count));
-	spdk_json_write_named_int64(w, "completed_read_io_count", rte_atomic64_read(&fdisk->c_read_io_count));
+	spdk_json_write_named_int64(w, "submited_write_io_count", fdisk->s_write_io_count);
+	spdk_json_write_named_int64(w, "completed_write_io_count", fdisk->c_write_io_count);
+	spdk_json_write_named_int64(w, "submited_read_io_count", fdisk->s_read_io_count);
+	spdk_json_write_named_int64(w, "completed_read_io_count", fdisk->c_read_io_count);
+	// spdk_json_write_named_int64(w, "submited_write_io_count", rte_atomic64_read(fdisk->s_write_io_count));
+	// spdk_json_write_named_int64(w, "completed_write_io_count", rte_atomic64_read(fdisk->c_write_io_count));
+	// spdk_json_write_named_int64(w, "submited_read_io_count", rte_atomic64_read(fdisk->s_read_io_count));
+	// spdk_json_write_named_int64(w, "completed_read_io_count", rte_atomic64_read(fdisk->c_read_io_count));
 
 	spdk_json_write_object_end(w);
 
@@ -832,10 +844,14 @@ create_aio_bdev(const char *name, const char *filename, uint32_t block_size)
 	fdisk->disk.ctxt = fdisk;
 
 	fdisk->disk.fn_table = &aio_fn_table;
-	rte_atomic64_init(&fdisk->s_write_io_count);
-	rte_atomic64_init(&fdisk->s_read_io_count);
-	rte_atomic64_init(&fdisk->c_write_io_count);
-	rte_atomic64_init(&fdisk->c_read_io_count);
+	fdisk->s_write_io_count = 0;
+	fdisk->s_read_io_count = 0;
+	fdisk->c_write_io_count = 0;
+	fdisk->c_read_io_count = 0;
+	// rte_atomic64_init(&fdisk->s_write_io_count);
+	// rte_atomic64_init(&fdisk->s_read_io_count);
+	// rte_atomic64_init(&fdisk->c_write_io_count);
+	// rte_atomic64_init(&fdisk->c_read_io_count);
 
 	spdk_io_device_register(fdisk, bdev_aio_create_cb, bdev_aio_destroy_cb,
 				sizeof(struct bdev_aio_io_channel),
