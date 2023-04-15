@@ -53,6 +53,7 @@
 
 #include "bdev_internal.h"
 #include "spdk_internal/trace_defs.h"
+#include <stdatomic.h>
 
 #ifdef SPDK_CONFIG_VTUNE
 #include "ittnotify.h"
