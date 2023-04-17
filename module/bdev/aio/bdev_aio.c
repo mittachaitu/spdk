@@ -96,6 +96,7 @@ struct file_disk {
 	uint64_t c_read_io_count;
 	uint64_t w_print_count;
 	uint64_t r_print_count;
+	long periodic_print_count;
 };
 
 /* For user space reaping of completions */
@@ -215,7 +216,7 @@ bdev_aio_readv(struct file_disk *fdisk, struct spdk_io_channel *ch,
 		// fdisk->s_read_io_count++;
 		aio_ch->io_inflight++;
 		// Print No of IOs processed for every 100 IOs
-		if ( fdisk->r_print_count > 100 ) {
+		if ( fdisk->r_print_count > (uint64_t) fdisk->periodic_print_count ) {
 			SPDK_NOTICELOG("Read IOs for bdev: %s Submited Read IO count :%ld Completed Read IO Count: %ld", fdisk->disk.name, fdisk->s_read_io_count, fdisk->c_read_io_count);
 			SPDK_INFOLOG(aio, "Read IOs for bdev: %s Submited Read IO count :%ld Completed Read IO Count: %ld", fdisk->disk.name, fdisk->s_read_io_count, fdisk->c_read_io_count);
 			fdisk->r_print_count = 0;
@@ -258,7 +259,7 @@ bdev_aio_writev(struct file_disk *fdisk, struct spdk_io_channel *ch,
 		// rte_atomic64_add(&fdisk->s_write_io_count, 1);
 		aio_ch->io_inflight++;
 		// Print No of IOs processed for every 100 IOs
-		if ( fdisk->w_print_count > 2000 ) {
+		if ( fdisk->w_print_count > (uint64_t) fdisk->periodic_print_count ) {
 			SPDK_NOTICELOG("Write IOs for bdev: %s Submited Write IO count :%ld Completed Write IO Count: %ld", fdisk->disk.name, fdisk->s_write_io_count, fdisk->c_write_io_count);
 			SPDK_INFOLOG(aio, "Write IOs for bdev: %s Submited Write IO count :%ld Completed Write IO Count: %ld", fdisk->disk.name, fdisk->s_write_io_count, fdisk->c_write_io_count);
 			fdisk->w_print_count = 0;
@@ -865,6 +866,19 @@ create_aio_bdev(const char *name, const char *filename, uint32_t block_size)
 	fdisk->c_read_io_count = 0;
 	fdisk->w_print_count = 0;
 	fdisk->r_print_count = 0;
+	char *print_period = getenv("PRINT_IO_EVERY_N_SECOND");
+	SPDK_NOTICELOG("PERIOD: %s\n", print_period);
+	if ( print_period == NULL || strcmp(print_period, "") == 0 ) {
+		fdisk->periodic_print_count = 5000;
+	} else {
+		errno = 0;
+		fdisk->periodic_print_count = strtol(print_period, NULL, 10);
+		if ( errno != 0 ) {
+			SPDK_ERRLOG("Failed to set periodic log count for bdev %s defaulting it to 5000", fdisk->disk.name);
+			fdisk->periodic_print_count = 5000;
+		}
+	}
+	SPDK_NOTICELOG("READ/WRITE IOs will be print for every %ld IOs\n", fdisk->periodic_print_count);
 	// rte_atomic64_init(&fdisk->s_write_io_count);
 	// rte_atomic64_init(&fdisk->s_read_io_count);
 	// rte_atomic64_init(&fdisk->c_write_io_count);
