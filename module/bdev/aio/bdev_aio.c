@@ -94,6 +94,8 @@ struct file_disk {
 	uint64_t c_write_io_count;
 	uint64_t s_read_io_count;
 	uint64_t c_read_io_count;
+	uint64_t w_print_count;
+	uint64_t r_print_count;
 };
 
 /* For user space reaping of completions */
@@ -208,9 +210,16 @@ bdev_aio_readv(struct file_disk *fdisk, struct spdk_io_channel *ch,
 		}
 	} else {
 		__sync_fetch_and_add(&fdisk->s_read_io_count, 1);
+		__sync_fetch_and_add(&fdisk->r_print_count, 1);
 		// rte_atomic64_add(&fdisk->s_read_io_count, 1);
 		// fdisk->s_read_io_count++;
 		aio_ch->io_inflight++;
+		// Print No of IOs processed for every 100 IOs
+		if ( fdisk->r_print_count > 100 ) {
+			SPDK_NOTICELOG("Read IOs for bdev: %s Submited Read IO count :%ld Completed Read IO Count: %ld", fdisk->disk.name, fdisk->s_read_io_count, fdisk->c_read_io_count);
+			SPDK_INFOLOG(aio, "Read IOs for bdev: %s Submited Read IO count :%ld Completed Read IO Count: %ld", fdisk->disk.name, fdisk->s_read_io_count, fdisk->c_read_io_count);
+			fdisk->r_print_count = 0;
+		}
 	}
 }
 
@@ -232,8 +241,8 @@ bdev_aio_writev(struct file_disk *fdisk, struct spdk_io_channel *ch,
 	aio_task->ch = aio_ch;
 
 	// SPDK_INFOLOG(aio, "Bdev Name: %s\n", fdisk->disk.name);
-	SPDK_INFOLOG(aio, "write %d iovs size %lu from off: %#lx on bdev: %s\n",
-		      iovcnt, len, offset, fdisk->disk.name);
+	// SPDK_INFOLOG(aio, "write %d iovs size %lu from off: %#lx on bdev: %s\n",
+	//	      iovcnt, len, offset, fdisk->disk.name);
 
 	rc = io_submit(aio_ch->io_ctx, 1, &iocb);
 	if (spdk_unlikely(rc < 0)) {
@@ -245,8 +254,15 @@ bdev_aio_writev(struct file_disk *fdisk, struct spdk_io_channel *ch,
 		}
 	} else {
 		__sync_fetch_and_add(&fdisk->s_write_io_count, 1);
+		__sync_fetch_and_add(&fdisk->w_print_count, 1);
 		// rte_atomic64_add(&fdisk->s_write_io_count, 1);
 		aio_ch->io_inflight++;
+		// Print No of IOs processed for every 100 IOs
+		if ( fdisk->w_print_count > 2000 ) {
+			SPDK_NOTICELOG("Write IOs for bdev: %s Submited Write IO count :%ld Completed Write IO Count: %ld", fdisk->disk.name, fdisk->s_write_io_count, fdisk->c_write_io_count);
+			SPDK_INFOLOG(aio, "Write IOs for bdev: %s Submited Write IO count :%ld Completed Write IO Count: %ld", fdisk->disk.name, fdisk->s_write_io_count, fdisk->c_write_io_count);
+			fdisk->w_print_count = 0;
+		}
 	}
 }
 
@@ -373,7 +389,7 @@ bdev_aio_io_channel_poll(struct bdev_aio_io_channel *io_ch)
 
 			struct spdk_bdev_io *bdev_io = spdk_bdev_io_from_ctx(aio_task);
 			struct file_disk *fdisk = (struct file_disk *)bdev_io->bdev->ctxt;
-			SPDK_INFOLOG(aio, "Received acknoweldgement for IO %d", bdev_io->type);
+// 			SPDK_INFOLOG(aio, "Received acknoweldgement for IO %d", bdev_io->type);
 			switch (bdev_io->type) {
 				case SPDK_BDEV_IO_TYPE_READ:
 					__sync_fetch_and_add(&fdisk->c_read_io_count, 1);
@@ -534,7 +550,6 @@ bdev_aio_get_buf_cb(struct spdk_io_channel *ch, struct spdk_bdev_io *bdev_io,
 
 static int _bdev_aio_submit_request(struct spdk_io_channel *ch, struct spdk_bdev_io *bdev_io)
 {
-	SPDK_INFOLOG(aio, "Received SPDK AIO submit request\n");
 	switch (bdev_io->type) {
 	/* Read and write operations must be performed on buffers aligned to
 	 * bdev->required_alignment. If user specified unaligned buffers,
@@ -848,6 +863,8 @@ create_aio_bdev(const char *name, const char *filename, uint32_t block_size)
 	fdisk->s_read_io_count = 0;
 	fdisk->c_write_io_count = 0;
 	fdisk->c_read_io_count = 0;
+	fdisk->w_print_count = 0;
+	fdisk->r_print_count = 0;
 	// rte_atomic64_init(&fdisk->s_write_io_count);
 	// rte_atomic64_init(&fdisk->s_read_io_count);
 	// rte_atomic64_init(&fdisk->c_write_io_count);
