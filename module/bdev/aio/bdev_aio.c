@@ -51,8 +51,23 @@
 #include <sys/eventfd.h>
 #include <libaio.h>
 #include <unistd.h>
+#include <stdint.h>
 
-// #include <rte_atomic.h>
+#define SEC_IN_NS 1000000000
+/*
+ * Calculate time difference
+ */
+#define timesdiff(_clockid, _st, _now, _re)				\
+{									\
+	clock_gettime(_clockid, &_now);					\
+	if ((_now.tv_nsec - _st.tv_nsec)<0) {				\
+		_re.tv_sec  = _now.tv_sec - _st.tv_sec - 1;		\
+		_re.tv_nsec = SEC_IN_NS + _now.tv_nsec - _st.tv_nsec;	\
+	} else {							\
+		_re.tv_sec  = _now.tv_sec - _st.tv_sec;			\
+		_re.tv_nsec = _now.tv_nsec - _st.tv_nsec;		\
+	}								\
+}
 
 struct bdev_aio_io_channel {
 	uint64_t				io_inflight;
@@ -75,6 +90,12 @@ struct bdev_aio_task {
 	struct iocb			iocb;
 	uint64_t			len;
 	struct bdev_aio_io_channel	*ch;
+};
+
+struct bdev_aio_request {
+	struct bdev_aio_task *aio_task;
+	struct timespec submitted_time;
+	uint64_t io_type;
 };
 
 struct file_disk {
@@ -188,6 +209,7 @@ bdev_aio_readv(struct file_disk *fdisk, struct spdk_io_channel *ch,
 {
 	struct iocb *iocb = &aio_task->iocb;
 	struct bdev_aio_io_channel *aio_ch = spdk_io_channel_get_ctx(ch);
+	struct bdev_aio_request *aio_req = (struct bdev_aio_request *) malloc(sizeof(struct bdev_aio_request));
 	int rc;
 	// struct timespec submitted_time;
 
@@ -195,13 +217,16 @@ bdev_aio_readv(struct file_disk *fdisk, struct spdk_io_channel *ch,
 	if (aio_ch->group_ch->efd >= 0) {
 		io_set_eventfd(iocb, aio_ch->group_ch->efd);
 	}
-	iocb->data = aio_task;
+	aio_req->aio_task = aio_task;
+	aio_req->io_type = SPDK_BDEV_IO_TYPE_READ;
+	iocb->data = aio_req;
 	aio_task->len = nbytes;
 	aio_task->ch = aio_ch;
 
 	SPDK_DEBUGLOG(aio, "read %d iovs size %lu to off: %#lx\n",
 		      iovcnt, nbytes, offset);
 
+	clock_gettime(CLOCK_MONOTONIC_COARSE, &aio_req->submitted_time);
 	rc = io_submit(aio_ch->io_ctx, 1, &iocb);
 	if (spdk_unlikely(rc < 0)) {
 		if (rc == -EAGAIN) {
@@ -232,13 +257,16 @@ bdev_aio_writev(struct file_disk *fdisk, struct spdk_io_channel *ch,
 {
 	struct iocb *iocb = &aio_task->iocb;
 	struct bdev_aio_io_channel *aio_ch = spdk_io_channel_get_ctx(ch);
+	struct bdev_aio_request *aio_req = (struct bdev_aio_request *)malloc(sizeof(struct bdev_aio_request));
 	int rc;
 
 	io_prep_pwritev(iocb, fdisk->fd, iov, iovcnt, offset);
 	if (aio_ch->group_ch->efd >= 0) {
 		io_set_eventfd(iocb, aio_ch->group_ch->efd);
 	}
-	iocb->data = aio_task;
+	aio_req->aio_task = aio_task;
+	aio_req->io_type = SPDK_BDEV_IO_TYPE_WRITE;
+	iocb->data = aio_req;
 	aio_task->len = len;
 	aio_task->ch = aio_ch;
 
@@ -264,6 +292,7 @@ bdev_aio_writev(struct file_disk *fdisk, struct spdk_io_channel *ch,
 		}
 	}
 
+	clock_gettime(CLOCK_MONOTONIC_COARSE, &aio_req->submitted_time);
 	rc = io_submit(aio_ch->io_ctx, 1, &iocb);
 	if (spdk_unlikely(rc < 0)) {
 		if (rc == -EAGAIN) {
@@ -393,6 +422,10 @@ bdev_aio_io_channel_poll(struct bdev_aio_io_channel *io_ch)
 	struct bdev_aio_task *aio_task;
 	struct io_event events[SPDK_AIO_QUEUE_DEPTH];
 	uint64_t io_result;
+	struct spdk_bdev_io *bdev_io;
+	struct file_disk *fdisk;
+	struct bdev_aio_request *aio_req;
+	struct timespec now, diff;
 
 	nr = bdev_user_io_getevents(io_ch->io_ctx, SPDK_AIO_QUEUE_DEPTH, events);
 
@@ -402,14 +435,20 @@ bdev_aio_io_channel_poll(struct bdev_aio_io_channel *io_ch)
 
 #define MAX_AIO_ERRNO 256
 	for (i = 0; i < nr; i++) {
-		aio_task = events[i].data;
+		aio_req = events[i].data;
+		aio_task = aio_req->aio_task;
+		bdev_io = spdk_bdev_io_from_ctx(aio_task);
+		fdisk = (struct file_disk *)bdev_io->bdev->ctxt;	
+		timesdiff(CLOCK_MONOTONIC_COARSE, aio_req->submitted_time, now, diff);
+		if (diff.tv_sec >= 1) {
+			SPDK_WARNLOG("Bdev %s IO type: %d took %ld.%ld time to succeed", fdisk->disk.name, bdev_io->type, diff.tv_sec, diff.tv_nsec);
+			SPDK_INFOLOG(aio, "Bdev %s IO type: %d took %ld.%ld time to succeed", fdisk->disk.name, bdev_io->type, diff.tv_sec, diff.tv_nsec);
+		}
+
 		aio_task->ch->io_inflight--;
 		io_result = events[i].res;
 		if (io_result == aio_task->len) {
-
-			struct spdk_bdev_io *bdev_io = spdk_bdev_io_from_ctx(aio_task);
-			struct file_disk *fdisk = (struct file_disk *)bdev_io->bdev->ctxt;
-// 			SPDK_INFOLOG(aio, "Received acknoweldgement for IO %d", bdev_io->type);
+//			SPDK_INFOLOG(aio, "Received acknoweldgement for IO %d", bdev_io->type);
 			switch (bdev_io->type) {
 				case SPDK_BDEV_IO_TYPE_READ:
 					__sync_fetch_and_add(&fdisk->c_read_io_count, 1);
