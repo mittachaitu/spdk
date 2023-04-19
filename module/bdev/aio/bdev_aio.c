@@ -50,6 +50,7 @@
 
 #include <sys/eventfd.h>
 #include <libaio.h>
+#include <unistd.h>
 
 // #include <rte_atomic.h>
 
@@ -244,6 +245,24 @@ bdev_aio_writev(struct file_disk *fdisk, struct spdk_io_channel *ch,
 	// SPDK_INFOLOG(aio, "Bdev Name: %s\n", fdisk->disk.name);
 	// SPDK_INFOLOG(aio, "write %d iovs size %lu from off: %#lx on bdev: %s\n",
 	//	      iovcnt, len, offset, fdisk->disk.name);
+
+	// Simulate timeout cases
+	if (access("/hosttmp/sleep.file", F_OK) == 0) {
+		while (true) {
+			SPDK_INFOLOG(aio, "About to sleep at bdev %s writev func", fdisk->disk.name);
+			sleep(5);
+			if (access("/hosttmp/sleep.file", F_OK) != 0) {
+				break;
+			}
+		}
+	}
+	while ( true ) {
+		if (access("/hosttmp/sleep.file", F_OK) == 0) {
+			sleep(5);
+		} else {
+			break;
+		}
+	}
 
 	rc = io_submit(aio_ch->io_ctx, 1, &iocb);
 	if (spdk_unlikely(rc < 0)) {
