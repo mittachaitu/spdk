@@ -289,6 +289,7 @@ bdev_part_complete_io(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
 {
 	struct spdk_bdev_io *part_io = cb_arg;
 	int status = success ? SPDK_BDEV_IO_STATUS_SUCCESS : SPDK_BDEV_IO_STATUS_FAILED;
+	SPDK_WARNLOG("At bdev_part_complete_io of bdev: %s with io_type: %d io_status: %d", bdev_io->bdev->name, bdev_io->type, success);
 
 	spdk_bdev_io_complete(part_io, status);
 	spdk_bdev_free_io(bdev_io);
@@ -317,6 +318,7 @@ spdk_bdev_part_submit_request(struct spdk_bdev_part_channel *ch, struct spdk_bde
 	offset = bdev_io->u.bdev.offset_blocks;
 	remapped_offset = offset + part->internal.offset_blocks;
 
+	SPDK_WARNLOG("spdk_bdev_part_submit_request of bdev: %s of type: %d", bdev_io->bdev->name, bdev_io->type);
 	/* Modify the I/O to adjust for the offset within the base bdev. */
 	switch (bdev_io->type) {
 	case SPDK_BDEV_IO_TYPE_READ:

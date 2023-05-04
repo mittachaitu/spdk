@@ -2093,6 +2093,7 @@ nvmf_tcp_sock_process(struct spdk_nvmf_tcp_qpair *tqpair)
 	struct spdk_nvmf_tcp_transport *ttransport = SPDK_CONTAINEROF(tqpair->qpair.transport,
 			struct spdk_nvmf_tcp_transport, transport);
 
+	// SPDK_WARNLOG("At nvmf_tcp_sock_process... got TCP packet to process");
 	/* The loop here is to allow for several back-to-back state changes. */
 	do {
 		prev_state = tqpair->recv_state;

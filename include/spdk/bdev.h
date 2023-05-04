@@ -1865,6 +1865,10 @@ bdev_unlock_lba_range(struct spdk_bdev_desc *desc, struct spdk_io_channel *_ch,
 		      uint64_t offset, uint64_t length,
 		      lock_range_cb cb_fn, void *cb_arg);
 
+char *get_bdev_name_from_bdev_io(struct spdk_bdev_io *bdev_io);
+char *get_bdev_name_from_bdev(struct spdk_bdev *bdev);
+uint8_t get_bdev_io_type(struct spdk_bdev_io *bdev_io);
+
 #ifdef __cplusplus
 }
 #endif

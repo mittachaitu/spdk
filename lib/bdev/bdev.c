@@ -91,6 +91,18 @@ TAILQ_HEAD(spdk_bdev_list, spdk_bdev);
 
 RB_HEAD(bdev_name_tree, spdk_bdev_name);
 
+char *get_bdev_name_from_bdev(struct spdk_bdev *bdev) {
+	return bdev->name;
+}
+
+char *get_bdev_name_from_bdev_io(struct spdk_bdev_io *bdev_io) {
+	return bdev_io->bdev->name;
+}
+
+uint8_t get_bdev_io_type(struct spdk_bdev_io *bdev_io) {
+	return bdev_io->type;
+}
+
 static int
 bdev_name_cmp(struct spdk_bdev_name *name1, struct spdk_bdev_name *name2)
 {
@@ -1928,6 +1940,8 @@ bdev_io_do_submit(struct spdk_bdev_channel *bdev_ch, struct spdk_bdev_io *bdev_i
 	struct spdk_io_channel *ch = bdev_ch->channel;
 	struct spdk_bdev_shared_resource *shared_resource = bdev_ch->shared_resource;
 
+	SPDK_WARNLOG("At bdev_io_do_submit call for bdev %s io type: %d", bdev->name, bdev_io->type);
+
 	if (spdk_unlikely(bdev_io->type == SPDK_BDEV_IO_TYPE_ABORT)) {
 		struct spdk_bdev_mgmt_channel *mgmt_channel = shared_resource->mgmt_ch;
 		struct spdk_bdev_io *bio_to_abort = bdev_io->u.abort.bio_to_abort;
@@ -1947,8 +1961,15 @@ bdev_io_do_submit(struct spdk_bdev_channel *bdev_ch, struct spdk_bdev_io *bdev_i
 		bdev_io->internal.in_submit_request = true;
 		bdev->fn_table->submit_request(ch, bdev_io);
 		bdev_io->internal.in_submit_request = false;
+		SPDK_WARNLOG("Successfully submit IO to submit_request fn for bdev: %s outstanding channel IOs: %ld outstanding shared_resource IOs: %ld\n", bdev->name, bdev_ch->io_outstanding, shared_resource->io_outstanding);
 	} else {
 		TAILQ_INSERT_TAIL(&shared_resource->nomem_io, bdev_io, internal.link);
+		int nomem_io_queue_len = 0;
+		struct spdk_bdev_io *nomem_bdev_io;
+		TAILQ_FOREACH(nomem_bdev_io, &shared_resource->nomem_io, internal.link) {
+			nomem_io_queue_len++;
+		}
+		SPDK_WARNLOG("Added bdev_io into nomem_io queue for bdev: %s and length is %d", bdev->name, nomem_io_queue_len);
 	}
 }
 
@@ -3978,7 +3999,6 @@ bdev_write_blocks_with_md(struct spdk_bdev_desc *desc, struct spdk_io_channel *c
 	if (!bdev_io) {
 		return -ENOMEM;
 	}
-
 	bdev_io->internal.ch = channel;
 	bdev_io->internal.desc = desc;
 	bdev_io->type = SPDK_BDEV_IO_TYPE_WRITE;
@@ -4074,6 +4094,7 @@ bdev_writev_blocks_with_md(struct spdk_bdev_desc *desc, struct spdk_io_channel *
 	bdev_io->u.bdev.offset_blocks = offset_blocks;
 	bdev_io_init(bdev_io, bdev, cb_arg, cb);
 	bdev_io->internal.ext_opts = opts;
+	SPDK_WARNLOG("Successfully inited bdev_io for bdev: %s io_type: %d", bdev->name, bdev_io->type);
 
 	bdev_io_submit(bdev_io);
 	return 0;
@@ -5471,6 +5492,7 @@ spdk_bdev_io_complete(struct spdk_bdev_io *bdev_io, enum spdk_bdev_io_status sta
 		assert(shared_resource->io_outstanding > 0);
 		bdev_ch->io_outstanding--;
 		shared_resource->io_outstanding--;
+		SPDK_WARNLOG("Completed IO for bdev_io: %p bdev: %s, and io_type: %d io_status: %d, IOs: channel outstanding %ld shared_resource outstnd: %ld\n", bdev_io, bdev->name, bdev_io->type, status, bdev_ch->io_outstanding, shared_resource->io_outstanding);
 
 		if (spdk_unlikely(status == SPDK_BDEV_IO_STATUS_NOMEM)) {
 			TAILQ_INSERT_HEAD(&shared_resource->nomem_io, bdev_io, internal.link);

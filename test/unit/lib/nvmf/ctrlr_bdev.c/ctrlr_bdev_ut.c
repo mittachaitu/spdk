@@ -71,6 +71,18 @@ DEFINE_STUB(spdk_bdev_abort, int,
 DEFINE_STUB_V(spdk_bdev_io_get_iovec,
 	      (struct spdk_bdev_io *bdev_io, struct iovec **iovp, int *iovcntp));
 
+char *get_bdev_name_from_bdev(struct spdk_bdev *bdev) {
+	return bdev->name;
+}
+
+char *get_bdev_name_from_bdev_io(struct spdk_bdev_io *bdev_io) {
+	return bdev_io->bdev->name;
+}
+
+uint8_t get_bdev_io_type(struct spdk_bdev_io *bdev_io) {
+	return bdev_io->type;
+}
+
 uint32_t
 spdk_bdev_get_optimal_io_boundary(const struct spdk_bdev *bdev)
 {

@@ -3968,6 +3968,7 @@ nvmf_ctrlr_process_io_cmd(struct spdk_nvmf_request *req)
 	bdev = ns->bdev;
 	desc = ns->desc;
 	ch = ns_info->channel;
+	// SPDK_WARNLOG("At nvmf_ctrlr_process_io_cmd for bdev opcode: %d\n", cmd->opc);
 
 	if (spdk_unlikely(cmd->fuse & SPDK_NVME_CMD_FUSE_MASK)) {
 		return nvmf_ctrlr_process_io_fused_cmd(req, bdev, desc, ch);

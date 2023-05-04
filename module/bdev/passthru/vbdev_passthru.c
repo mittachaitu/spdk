@@ -176,6 +176,7 @@ _pt_complete_io(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg)
 	int status = success ? SPDK_BDEV_IO_STATUS_SUCCESS : SPDK_BDEV_IO_STATUS_FAILED;
 	struct passthru_bdev_io *io_ctx = (struct passthru_bdev_io *)orig_io->driver_ctx;
 
+	SPDK_WARNLOG("At pt_complete_io of bdev: %s with io_type: %d io_status: %d", bdev_io->bdev->name, bdev_io->type, success);
 	/* We setup this value in the submission routine, just showing here that it is
 	 * passed back to us.
 	 */
@@ -304,7 +305,7 @@ vbdev_passthru_submit_request(struct spdk_io_channel *ch, struct spdk_bdev_io *b
 	 * demonstrate.
 	 */
 	io_ctx->test = 0x5a;
-
+	SPDK_WARNLOG("vbdev_passthru_submit_request of bdev: %s of type: %d", bdev_io->bdev->name, bdev_io->type);
 	switch (bdev_io->type) {
 	case SPDK_BDEV_IO_TYPE_READ:
 		spdk_bdev_io_get_buf(bdev_io, pt_read_get_buf_cb,
