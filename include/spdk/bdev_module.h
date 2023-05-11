@@ -1292,6 +1292,8 @@ static void __attribute__((constructor)) _spdk_bdev_module_register_##name(void)
 	spdk_bdev_module_list_add(module); \
 } \
 
+void bdev_ch_retry_io(struct spdk_bdev_channel *bdev_ch);
+
 #endif /* __SPDK_BDEV_MODULE_ONLY */
 
 #ifdef __cplusplus

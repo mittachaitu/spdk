@@ -98,7 +98,7 @@ nvmf_bdev_ctrlr_complete_cmd(struct spdk_bdev_io *bdev_io, bool success,
 	uint32_t			cdw0 = 0;
 	struct spdk_nvmf_request	*first_req = req->first_fused_req;
 
-	SPDK_WARNLOG("Completed bdev %s command type %d success: %d", get_bdev_name_from_bdev_io(bdev_io), get_bdev_io_type(bdev_io), success); 
+	// SPDK_WARNLOG("Completed bdev %s command type %d success: %d", get_bdev_name_from_bdev_io(bdev_io), get_bdev_io_type(bdev_io), success); 
 
 	if (spdk_unlikely(first_req != NULL)) {
 		/* fused commands - get status for both operations */
@@ -119,7 +119,7 @@ nvmf_bdev_ctrlr_complete_cmd(struct spdk_bdev_io *bdev_io, bool success,
 	response->cdw0 = cdw0;
 	response->status.sc = sc;
 	response->status.sct = sct;
-	SPDK_WARNLOG("Setting response codes sct: %d sc: %d and cdw0: %d", response->status.sct, response->status.sc, response->cdw0);
+	SPDK_WARNLOG("Setting response codes for bdev_io: %p sct: %d sc: %d and cdw0: %d, dnr: %d", bdev_io, response->status.sct, response->status.sc, response->cdw0, response->status.dnr);
 
 	spdk_nvmf_request_complete(req);
 	spdk_bdev_free_io(bdev_io);

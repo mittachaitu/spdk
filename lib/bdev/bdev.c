@@ -5291,24 +5291,23 @@ spdk_bdev_queue_io_wait(struct spdk_bdev *bdev, struct spdk_io_channel *ch,
 	return 0;
 }
 
-static void
-bdev_ch_retry_io(struct spdk_bdev_channel *bdev_ch)
+void bdev_ch_retry_io(struct spdk_bdev_channel *bdev_ch)
 {
 	struct spdk_bdev *bdev = bdev_ch->bdev;
 	struct spdk_bdev_shared_resource *shared_resource = bdev_ch->shared_resource;
 	struct spdk_bdev_io *bdev_io;
 
-	if (shared_resource->io_outstanding > shared_resource->nomem_threshold) {
-		/*
-		 * Allow some more I/O to complete before retrying the nomem_io queue.
-		 *  Some drivers (such as nvme) cannot immediately take a new I/O in
-		 *  the context of a completion, because the resources for the I/O are
-		 *  not released until control returns to the bdev poller.  Also, we
-		 *  may require several small I/O to complete before a larger I/O
-		 *  (that requires splitting) can be submitted.
-		 */
-		return;
-	}
+	// if (shared_resource->io_outstanding > shared_resource->nomem_threshold) {
+	// 	/*
+	// 	 * Allow some more I/O to complete before retrying the nomem_io queue.
+	// 	 *  Some drivers (such as nvme) cannot immediately take a new I/O in
+	// 	 *  the context of a completion, because the resources for the I/O are
+	// 	 *  not released until control returns to the bdev poller.  Also, we
+	// 	 *  may require several small I/O to complete before a larger I/O
+	// 	 *  (that requires splitting) can be submitted.
+	// 	 */
+	// 	return;
+	// }
 
 	while (!TAILQ_EMPTY(&shared_resource->nomem_io)) {
 		bdev_io = TAILQ_FIRST(&shared_resource->nomem_io);
@@ -5495,6 +5494,7 @@ spdk_bdev_io_complete(struct spdk_bdev_io *bdev_io, enum spdk_bdev_io_status sta
 		SPDK_WARNLOG("Completed IO for bdev_io: %p bdev: %s, and io_type: %d io_status: %d, IOs: channel outstanding %ld shared_resource outstnd: %ld\n", bdev_io, bdev->name, bdev_io->type, status, bdev_ch->io_outstanding, shared_resource->io_outstanding);
 
 		if (spdk_unlikely(status == SPDK_BDEV_IO_STATUS_NOMEM)) {
+			SPDK_WARNLOG("Adding bdev_io %p of bdev: %s into nomem queue due to nomem error", bdev_io, bdev->name);
 			TAILQ_INSERT_HEAD(&shared_resource->nomem_io, bdev_io, internal.link);
 			/*
 			 * Wait for some of the outstanding I/O to complete before we
