@@ -656,6 +656,7 @@ subsystem_state_change_on_pg(struct spdk_io_channel_iter *i)
 	struct spdk_io_channel *ch;
 	struct spdk_nvmf_poll_group *group;
 
+	SPDK_WARNLOG("subsystem_state_change_on_pg is invoked for state");
 	ctx = spdk_io_channel_iter_get_ctx(i);
 	ch = spdk_io_channel_iter_get_channel(i);
 	group = spdk_io_channel_get_ctx(ch);
@@ -674,6 +675,7 @@ subsystem_state_change_on_pg(struct spdk_io_channel_iter *i)
 		}
 		break;
 	case SPDK_NVMF_SUBSYSTEM_PAUSED:
+		SPDK_WARNLOG("subsystem_state_change_on_pg subsystem : %s is going to be in paused state of pollgroup", ctx->subsystem->subnqn);
 		nvmf_poll_group_pause_subsystem(group, ctx->subsystem, ctx->nsid, subsystem_state_change_continue,
 						i);
 		break;
@@ -698,6 +700,7 @@ nvmf_subsystem_state_change(struct spdk_nvmf_subsystem *subsystem,
 		return -EBUSY;
 	}
 
+	SPDK_WARNLOG("nvmf_subsystem_state_change %s requested to change to %d ", subsystem->tgt->name, requested_state);
 	SPDK_DTRACE_PROBE3(nvmf_subsystem_change_state, subsystem->subnqn,
 			   requested_state, subsystem->state);
 	/* If we are already in the requested state, just call the callback immediately. */
@@ -712,6 +715,7 @@ nvmf_subsystem_state_change(struct spdk_nvmf_subsystem *subsystem,
 	intermediate_state = nvmf_subsystem_get_intermediate_state(subsystem->state, requested_state);
 	assert(intermediate_state != SPDK_NVMF_SUBSYSTEM_NUM_STATES);
 
+	SPDK_WARNLOG("nvmf_subsystem_state_change for subnqn %s requested state %d current state %d intermediate state %d", subsystem->subnqn, requested_state, subsystem->state, intermediate_state);
 	ctx = calloc(1, sizeof(*ctx));
 	if (!ctx) {
 		subsystem->changing_state = false;
@@ -720,6 +724,7 @@ nvmf_subsystem_state_change(struct spdk_nvmf_subsystem *subsystem,
 
 	ctx->original_state = subsystem->state;
 	rc = nvmf_subsystem_set_state(subsystem, intermediate_state);
+	SPDK_WARNLOG("nvmf_subsystem_set_state with rc: %d... subsystem->state %d", rc, subsystem->state);
 	if (rc) {
 		free(ctx);
 		subsystem->changing_state = false;
@@ -732,6 +737,7 @@ nvmf_subsystem_state_change(struct spdk_nvmf_subsystem *subsystem,
 	ctx->cb_fn = cb_fn;
 	ctx->cb_arg = cb_arg;
 
+	SPDK_WARNLOG("CALLING spdk_for_each_channel");
 	spdk_for_each_channel(subsystem->tgt,
 			      subsystem_state_change_on_pg,
 			      ctx,

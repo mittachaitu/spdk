@@ -1542,15 +1542,26 @@ nvmf_poll_group_pause_subsystem(struct spdk_nvmf_poll_group *group,
 	}
 
 	sgroup = &group->sgroups[subsystem->id];
+	SPDK_WARNLOG("At nvmf_poll_group_pause_subsystem for subsystem ID: %d state: %d", subsystem->id, sgroup->state);
 	if (sgroup->state == SPDK_NVMF_SUBSYSTEM_PAUSED) {
+		SPDK_WARNLOG("nvmf_poll_group_pause_subsystem for subsystem ID: %d is already in PAUSED state", subsystem->id);
 		goto fini;
 	}
+	SPDK_WARNLOG("At nvmf_poll_group_pause_subsystem for subsystem: %d state: %d is not paused so pausing", subsystem->id, sgroup->state);
+
 	sgroup->state = SPDK_NVMF_SUBSYSTEM_PAUSING;
 
 	/* NOTE: This implicitly also checks for 0, since 0 - 1 wraps around to UINT32_MAX. */
 	if (nsid - 1 < sgroup->num_ns) {
 		ns_info  = &sgroup->ns_info[nsid - 1];
 		ns_info->state = SPDK_NVMF_SUBSYSTEM_PAUSING;
+	}
+
+	SPDK_WARNLOG("At nvmf_poll_group_pause_subsystem nsid: %d mgmt_ios: %ld", nsid-1, sgroup->mgmt_io_outstanding);
+	if ( ns_info != NULL ) {
+		SPDK_WARNLOG("At nvmf_poll_group_pause_subsystem nsid: %d mgmt_ios: %ld io_outstanding: %ld", nsid-1, sgroup->mgmt_io_outstanding, ns_info->io_outstanding);
+	} else {
+		SPDK_WARNLOG("ns_info is null");
 	}
 
 	if (sgroup->mgmt_io_outstanding > 0) {
@@ -1571,6 +1582,7 @@ nvmf_poll_group_pause_subsystem(struct spdk_nvmf_poll_group *group,
 
 	assert(sgroup->mgmt_io_outstanding == 0);
 	sgroup->state = SPDK_NVMF_SUBSYSTEM_PAUSED;
+	SPDK_WARNLOG("Successfully paused IOs \n");
 fini:
 	if (cb_fn) {
 		cb_fn(cb_arg, rc);

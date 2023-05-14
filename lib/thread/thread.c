@@ -2393,9 +2393,11 @@ spdk_for_each_channel(void *io_device, spdk_channel_msg fn, void *ctx,
 		goto end;
 	}
 
+	SPDK_WARNLOG("Iterating over spdk_threads to find get io-channel");
 	TAILQ_FOREACH(thread, &g_threads, tailq) {
 		ch = thread_get_io_channel(thread, i->dev);
 		if (ch != NULL) {
+			SPDK_WARNLOG("Iterating over channel %p\n", ch);
 			ch->dev->for_each_count++;
 			i->cur_thread = thread;
 			i->ch = ch;
