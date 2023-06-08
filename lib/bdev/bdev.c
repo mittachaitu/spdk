@@ -1946,6 +1946,7 @@ bdev_io_do_submit(struct spdk_bdev_channel *bdev_ch, struct spdk_bdev_io *bdev_i
 		struct spdk_bdev_mgmt_channel *mgmt_channel = shared_resource->mgmt_ch;
 		struct spdk_bdev_io *bio_to_abort = bdev_io->u.abort.bio_to_abort;
 
+		SPDK_WARNLOG("Aborting bdev: %s IO from channel %p", bdev->name, bdev_ch);
 		if (bdev_abort_queued_io(&shared_resource->nomem_io, bio_to_abort) ||
 		    bdev_abort_buf_io(&mgmt_channel->need_buf_small, bio_to_abort) ||
 		    bdev_abort_buf_io(&mgmt_channel->need_buf_large, bio_to_abort)) {
@@ -2616,6 +2617,7 @@ bdev_io_submit(struct spdk_bdev_io *bdev_io)
 
 		TAILQ_FOREACH(range, &ch->locked_ranges, tailq) {
 			if (bdev_io_range_is_locked(bdev_io, range)) {
+				SPDK_WARNLOG("Bdev: %s IO of type: %d on offset: %ld and blocks: %ld took a lock", bdev->name, bdev_io->type, bdev_io->u.bdev.offset_blocks, bdev_io->u.bdev.num_blocks);
 				TAILQ_INSERT_TAIL(&ch->io_locked, bdev_io, internal.ch_link);
 				return;
 			}

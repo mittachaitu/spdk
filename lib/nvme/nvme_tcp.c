@@ -795,6 +795,7 @@ nvme_tcp_qpair_abort_reqs(struct spdk_nvme_qpair *qpair, uint32_t dnr)
 	cpl.status.dnr = dnr;
 
 	TAILQ_FOREACH_SAFE(tcp_req, &tqpair->outstanding_reqs, link, tmp) {
+		SPDK_NOTICELOG("TCP Qpair aborting for outstanding request");
 		nvme_tcp_req_complete(tcp_req, &cpl);
 		nvme_tcp_req_put(tqpair, tcp_req);
 	}

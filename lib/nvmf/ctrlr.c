@@ -2943,6 +2943,7 @@ nvmf_qpair_abort_request(struct spdk_nvmf_qpair *qpair, struct spdk_nvmf_request
 {
 	uint16_t cid = req->cmd->nvme_cmd.cdw10_bits.abort.cid;
 
+	SPDK_WARNLOG("At nvmf_qpair_abort_request");
 	if (nvmf_qpair_abort_aer(qpair, cid)) {
 		SPDK_DEBUGLOG(nvmf, "abort ctrlr=%p sqid=%u cid=%u successful\n",
 			      qpair->ctrlr, qpair->qid, cid);
@@ -2977,6 +2978,7 @@ nvmf_ctrlr_abort_on_pg(struct spdk_io_channel_iter *i)
 	uint16_t sqid = req->cmd->nvme_cmd.cdw10_bits.abort.sqid;
 	struct spdk_nvmf_qpair *qpair;
 
+	SPDK_WARNLOG("At nvmf_ctrlr_abort_on_pg");
 	TAILQ_FOREACH(qpair, &group->qpairs, link) {
 		if (qpair->ctrlr == req->qpair->ctrlr && qpair->qid == sqid) {
 			/* Found the qpair */
@@ -3000,6 +3002,7 @@ nvmf_ctrlr_abort(struct spdk_nvmf_request *req)
 	rsp->cdw0 = 1U; /* Command not aborted */
 	rsp->status.sct = SPDK_NVME_SCT_GENERIC;
 	rsp->status.sc = SPDK_NVME_SC_SUCCESS;
+	SPDK_WARNLOG("nvmf_ctrlr_abort requeuest");
 
 	/* Send a message to each poll group, searching for this ctrlr, sqid, and command. */
 	spdk_for_each_channel(req->qpair->ctrlr->subsys->tgt,
@@ -3379,6 +3382,7 @@ nvmf_ctrlr_process_fabrics_cmd(struct spdk_nvmf_request *req)
 	if (qpair->ctrlr == NULL) {
 		/* No ctrlr established yet; the only valid command is Connect */
 		if (cap_hdr->fctype == SPDK_NVMF_FABRIC_COMMAND_CONNECT) {
+			SPDK_WARNLOG("Request to process nvmf_connect command");
 			return nvmf_ctrlr_cmd_connect(req);
 		} else {
 			SPDK_DEBUGLOG(nvmf, "Got fctype 0x%x, expected Connect\n",

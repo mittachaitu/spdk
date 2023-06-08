@@ -757,6 +757,7 @@ spdk_nvmf_bdev_ctrlr_abort_cmd(struct spdk_bdev *bdev, struct spdk_bdev_desc *de
 {
 	int rc;
 
+	SPDK_NOTICELOG("At spdk_nvmf_bdev_ctrlr_abort_cmd for bdev");
 	assert((req->rsp->nvme_cpl.cdw0 & 1U) != 0);
 
 	rc = spdk_bdev_abort(desc, ch, req_to_abort, nvmf_bdev_ctrlr_complete_abort_cmd, req);

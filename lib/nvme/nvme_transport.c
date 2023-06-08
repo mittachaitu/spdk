@@ -527,6 +527,7 @@ nvme_transport_ctrlr_disconnect_qpair(struct spdk_nvme_ctrlr *ctrlr, struct spdk
 	    nvme_qpair_get_state(qpair) == NVME_QPAIR_DISCONNECTED) {
 		return;
 	}
+	SPDK_NOTICELOG("Disconnecting all qpairs of transport");
 
 	nvme_qpair_set_state(qpair, NVME_QPAIR_DISCONNECTING);
 	assert(transport != NULL);
@@ -560,6 +561,7 @@ nvme_transport_qpair_abort_reqs(struct spdk_nvme_qpair *qpair, uint32_t dnr)
 {
 	const struct spdk_nvme_transport *transport;
 
+	SPDK_NOTICELOG("At nvme_transport_qpair_abort_reqs");
 	assert(dnr <= 1);
 	if (spdk_likely(!nvme_qpair_is_admin_queue(qpair))) {
 		qpair->transport->ops.qpair_abort_reqs(qpair, dnr);

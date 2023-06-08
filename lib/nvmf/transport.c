@@ -629,6 +629,7 @@ void
 nvmf_transport_qpair_abort_request(struct spdk_nvmf_qpair *qpair,
 				   struct spdk_nvmf_request *req)
 {
+	SPDK_NOTICELOG("Received nvmf_transport_qpair_abort request for bdev");
 	if (qpair->transport->ops->qpair_abort_request) {
 		qpair->transport->ops->qpair_abort_request(qpair, req);
 	}

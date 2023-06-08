@@ -1062,6 +1062,7 @@ nvme_qpair_resubmit_request(struct spdk_nvme_qpair *qpair, struct nvme_request *
 void
 nvme_qpair_abort_all_queued_reqs(struct spdk_nvme_qpair *qpair, uint32_t dnr)
 {
+	SPDK_NOTICELOG("At nvme_qpair_abort_all_queued_reqs fot %p", qpair);
 	nvme_qpair_complete_error_reqs(qpair);
 	nvme_qpair_abort_queued_reqs(qpair, dnr);
 	_nvme_qpair_complete_abort_queued_reqs(qpair);
