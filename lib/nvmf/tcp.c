@@ -2570,6 +2570,7 @@ nvmf_tcp_req_process(struct spdk_nvmf_tcp_transport *ttransport,
 
 	/* If the qpair is not active, we need to abort the outstanding requests. */
 	if (tqpair->qpair.state != SPDK_NVMF_QPAIR_ACTIVE) {
+		SPDK_NOTICELOG("qpair %p is not in state: %d", tqpair, tqpair->qpair.state);
 		if (tcp_req->state == TCP_REQUEST_STATE_NEED_BUFFER) {
 			STAILQ_REMOVE(&group->pending_buf_queue, &tcp_req->req, spdk_nvmf_request, buf_link);
 		}
@@ -2776,6 +2777,7 @@ nvmf_tcp_req_process(struct spdk_nvmf_tcp_transport *ttransport,
 		case TCP_REQUEST_STATE_READY_TO_COMPLETE:
 			spdk_trace_record(TRACE_TCP_REQUEST_STATE_READY_TO_COMPLETE, 0, 0, (uintptr_t)tcp_req,
 					  tqpair);
+			SPDK_NOTICELOG("TCP tqpair: %p Request ready to complete", tqpair);
 			rc = request_transfer_out(&tcp_req->req);
 			assert(rc == 0); /* No good way to handle this currently */
 			break;
@@ -2793,6 +2795,7 @@ nvmf_tcp_req_process(struct spdk_nvmf_tcp_transport *ttransport,
 			break;
 		case TCP_REQUEST_STATE_COMPLETED:
 			spdk_trace_record(TRACE_TCP_REQUEST_STATE_COMPLETED, 0, 0, (uintptr_t)tcp_req, tqpair);
+			SPDK_NOTICELOG("TCP qpair is completed: %p", tqpair);
 			if (tcp_req->req.data_from_pool) {
 				spdk_nvmf_request_free_buffers(&tcp_req->req, group, transport);
 			} else if (spdk_unlikely(tcp_req->has_in_capsule_data &&
