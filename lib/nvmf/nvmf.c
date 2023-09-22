@@ -1522,6 +1522,7 @@ nvmf_poll_group_remove_subsystem(struct spdk_nvmf_poll_group *group,
 	for (i = 0; i < sgroup->num_ns; i++) {
 		sgroup->ns_info[i].state = SPDK_NVMF_SUBSYSTEM_INACTIVE;
 	}
+	SPDK_INFOLOG(nvmf, "Successfully inactivated... Inactivated subsystem %s\n", subsystem->subnqn);
 
 	nvmf_poll_group_remove_subsystem_msg(ctx);
 }
@@ -1587,6 +1588,7 @@ nvmf_poll_group_resume_subsystem(struct spdk_nvmf_poll_group *group,
 	int rc = 0;
 	uint32_t i;
 
+	SPDK_INFOLOG(nvmf, "At begining of nvmf_poll_group_resume_subsystem of subsystem: %s\n", subsystem->subnqn);
 	if (subsystem->id >= group->num_sgroups) {
 		rc = -1;
 		goto fini;
@@ -1602,6 +1604,7 @@ nvmf_poll_group_resume_subsystem(struct spdk_nvmf_poll_group *group,
 	if (rc) {
 		goto fini;
 	}
+	SPDK_INFOLOG(nvmf, "After poll_group_update_subsystem call for subsystem: %s\n", subsystem->subnqn);
 
 	for (i = 0; i < sgroup->num_ns; i++) {
 		sgroup->ns_info[i].state = SPDK_NVMF_SUBSYSTEM_ACTIVE;

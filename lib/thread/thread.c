@@ -2360,6 +2360,7 @@ _call_channel(void *ctx)
 	if (ch) {
 		i->fn(i);
 	} else {
+		printf("Channel is deleted.... so continiouing\n");
 		spdk_for_each_channel_continue(i, 0);
 	}
 }

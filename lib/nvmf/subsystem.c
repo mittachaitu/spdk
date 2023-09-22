@@ -607,6 +607,7 @@ subsystem_state_change_done(struct spdk_io_channel_iter *i, int status)
 
 	if (status == 0) {
 		status = nvmf_subsystem_set_state(ctx->subsystem, ctx->requested_state);
+		SPDK_INFOLOG(nvmf, "Successfully updated the subsystme: %s to requested state: %d\n", ctx->subsystem->subnqn, ctx->requested_state);
 		if (status) {
 			status = -1;
 		}
@@ -632,6 +633,7 @@ out:
 	ctx->subsystem->changing_state = false;
 	if (ctx->cb_fn) {
 		ctx->cb_fn(ctx->subsystem, ctx->cb_arg, status);
+		SPDK_INFOLOG(nvmf, "Successfully rest state change of subnqn %s to %d\n", ctx->subsystem->subnqn, ctx->requested_state);
 	}
 	free(ctx);
 }
@@ -664,16 +666,20 @@ subsystem_state_change_on_pg(struct spdk_io_channel_iter *i)
 			   ctx->requested_state, spdk_thread_get_id(spdk_get_thread()));
 	switch (ctx->requested_state) {
 	case SPDK_NVMF_SUBSYSTEM_INACTIVE:
+		SPDK_INFOLOG(nvmf, "Removing subsystem %s from nvmf_poll_group\n", ctx->subsystem->subnqn);
 		nvmf_poll_group_remove_subsystem(group, ctx->subsystem, subsystem_state_change_continue, i);
 		break;
 	case SPDK_NVMF_SUBSYSTEM_ACTIVE:
 		if (ctx->subsystem->state == SPDK_NVMF_SUBSYSTEM_ACTIVATING) {
 			nvmf_poll_group_add_subsystem(group, ctx->subsystem, subsystem_state_change_continue, i);
 		} else if (ctx->subsystem->state == SPDK_NVMF_SUBSYSTEM_RESUMING) {
+			SPDK_INFOLOG(nvmf, "Calling nvmf_poll_group_resume_subsystem for subsystem: %s\n", ctx->subsystem->subnqn);
 			nvmf_poll_group_resume_subsystem(group, ctx->subsystem, subsystem_state_change_continue, i);
+			SPDK_INFOLOG(nvmf, "Done nvmf_poll_group_resume_subsystem for subsystem: %s\n", ctx->subsystem->subnqn);
 		}
 		break;
 	case SPDK_NVMF_SUBSYSTEM_PAUSED:
+		SPDK_INFOLOG(nvmf, "Pausing nvmf subsystem %s for nvmf_poll_group\n", ctx->subsystem->subnqn);
 		nvmf_poll_group_pause_subsystem(group, ctx->subsystem, ctx->nsid, subsystem_state_change_continue,
 						i);
 		break;
@@ -704,6 +710,7 @@ nvmf_subsystem_state_change(struct spdk_nvmf_subsystem *subsystem,
 	if (subsystem->state == requested_state) {
 		subsystem->changing_state = false;
 		if (cb_fn) {
+			SPDK_INFOLOG(nvmf, "Already in requested state calling callback function\n");
 			cb_fn(subsystem, cb_arg, 0);
 		}
 		return 0;
@@ -711,6 +718,7 @@ nvmf_subsystem_state_change(struct spdk_nvmf_subsystem *subsystem,
 
 	intermediate_state = nvmf_subsystem_get_intermediate_state(subsystem->state, requested_state);
 	assert(intermediate_state != SPDK_NVMF_SUBSYSTEM_NUM_STATES);
+	SPDK_INFOLOG(nvmf, "Changing state of nvmf subsystem: %s to %d and intermediate state is: %d\n", subsystem->subnqn, requested_state, intermediate_state);
 
 	ctx = calloc(1, sizeof(*ctx));
 	if (!ctx) {
@@ -725,6 +733,7 @@ nvmf_subsystem_state_change(struct spdk_nvmf_subsystem *subsystem,
 		subsystem->changing_state = false;
 		return rc;
 	}
+	SPDK_INFOLOG(nvmf, "Successfully updated the subsystem: %s with intermediate state\n", subsystem->subnqn);
 
 	ctx->subsystem = subsystem;
 	ctx->nsid = nsid;
